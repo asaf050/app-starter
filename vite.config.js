@@ -9,12 +9,7 @@ export default defineConfig(() => {
     plugins: [react()],
     server: {
       port: 8301,
-      allowedHosts: [
-        '.ngrok.io',
-        '.ngrok-free.app',
-        '23ecbe6ee5ef.ngrok-free.app',
-        '.apps-tunnel.nextplus.app'
-      ]
+      allowedHosts: true
     }
   }
 })
