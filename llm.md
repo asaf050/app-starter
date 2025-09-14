@@ -1,667 +1,1829 @@
-The app should run within an iframe of **Next Plus MES**.
-It communicates with the MES through messages using **@nextplus/app-sdk**.
-
-You can explore entity types, methods, and properties in the following files:
-
-* `node_modules/@nextplus/app-sdk/node_modules/@nextplus/js-sdk/src/sdk/types.gen.ts`
-* `node_modules/@nextplus/app-sdk/node_modules/@nextplus/js-sdk/src/sdk/sdk.gen.ts`
-
-You don’t need to use `JSON.stringify` on payloads, as the SDK already handles this automatically.
-When using
-
-
-# Filter
-
-## Where
+Here’s a polished version of your content with improved structure, clarity, and flow, while leaving your JSON payloads untouched:
 
 ---
-title: "Where filter"
-lang: en
-layout: page
-keywords: LoopBack
-tags:
-sidebar: lb3_sidebar
-permalink: /doc/en/lb3/Where-filter.html
-summary: A <i>where</i> filter specifies a set of logical conditions to match, similar to a WHERE clause in a SQL query.
+
+# Application Context & Integration
+
+The application is designed to run seamlessly inside an **iframe** within **Next Plus MES**.
+It communicates with the MES environment using **postMessage** events provided by **@nextplus/app-sdk**.
+
 ---
-## REST API
 
-In the first form below, the condition is equivalence, that is, it tests whether _property_ equals _value_.
-The second form below is for all other conditions.
+## Context Types
 
-```
-filter[where][property]=value
-```
+Each message includes a `type` and `data` object.
 
-```
-filter[where][property][op]=value
-```
+* **`type` (enum)** – The context in which the app is displayed. Possible values:
 
-For example, if there is a cars model with an `odo` property, the following query finds instances where the `odo` is greater than 5000:
+  * `Workorder.show`
+  * `Page.show`
+  * `ProductionEntity.show`
+  * `Stock.show`
+  * `FormData.show`
+  * `WorkflowSessionItem.report`
 
-```
-/cars?filter[where][odo][gt]=5000
-```
+* **`data`** – Varies depending on the `type`.
 
-For example, here is a query to find cars with `odo` is less than 30,000:
+  * `Page.show` has **no `data` argument**.
+  * All other types include detailed entity-specific information.
 
-```
-/cars?filter[where][odo][lt]=30000
-```
+---
 
-You can also use [stringified JSON format](Querying-data.html#using-stringified-json-in-rest-queries) in a REST query.
+## Context Examples
 
-### Filter limit
+### **Workorder.show**
 
-{% include important.html content="There is a limit of twenty filters (combined with AND or OR) using this format, due to the use of [qs](https://github.com/ljharb/qs#parsing-arrays).  When there are more than twenty, the filter is converted into an `Object` where it is expecting
-an `Array`. See [LoopBack issue #2824](https://github.com/strongloop/loopback/issues/2824) for more details.
-" %}
+A work order context provides detailed information about a specific production order.
+Example payload:
 
-There are two ways to work around the filter limit:
-
-- Encode the large filter object as "stringified JSON."
-- Override the limit manually in `server/server.js`, before boot is called.
-
-**Encode filter object as JSON**
-
-```
-http://localhost:3000/api/Books
-?filter={"where":{"or":[{"id":1},{"id":2},...,{"id":20"},{"id":21}]}}
-```
-
-**Override limit in `server.js`**
-
-```js
-// In `server/server.js`, before boot is called
-var loopback = require('loopback');
-var boot = require('loopback-boot');
-var qs = require('qs');
-
-var app = module.exports = loopback();
-app.set('query parser', function(value, option) {
-  return qs.parse(value, {arrayLimit: 500});
-});
-
-app.start = function() {
-  ...
-```
-
-## Node API
-
-{% include content/angular-methods-caveat.html lang=page.lang %}
-
-### Where clause for queries
-
-For query methods such as `find()`,` findOrCreate()`, or `findOne()`, use the first form below to test equivalence, that is, whether _property_ equals _value_.
-Use the second form below for all other conditions.
-
-```javascript
-{where: {property: value}}
-```
-
-```javascript
-{where: {property: {op: value}}}
-```
-
-Where:
-
-* _property_ is the name of a property (field) in the model being queried.
-* _value_ is a literal value.
-* _op_ is one of the [operators](#operators) listed below.
-
-```javascript
-Cars.find({where: {carClass:'fullsize'}});
-```
-
-The equivalent REST query would be:
-
-```
-/api/cars?filter[where][carClass]=fullsize
-```
-
-{% include tip.html content="The above where clause syntax is for queries, and not for [`count()`](http://apidocs.loopback.io/loopback/#persistedmodel-count).
-For all other methods, including `count()`, omit the `{ where : ... }` wrapper; see [Where clause for other methods](#where-clause-for-other-methods) below.
-" %}
-
-### Where clause for other methods
-
-{% include important.html content="When you call the Node APIs _for methods other than queries_, that is for methods that update and delete
-(and [`count()`](http://apidocs.loopback.io/loopback/#persistedmodel-count)), don't wrap the where clause in a `{ where : ... }` object, simply use the condition as the argument as shown below. See examples below.
-" %}
-
-In the first form below, the condition is equivalence, that is, it tests whether _property_ equals _value_. The second form is for all other conditions.
-
-```javascript
-{property: value}
-```
-
-```javascript
-{property: {op: value}}
-```
-
-Where:
-
-* _property_ is the name of a property (field) in the model being queried.
-* _value_ is a literal value.
-* _op_ is one of the [operators](#operators) listed below.
-
-For example, below shows a where clause in a call to a model's [updateAll()](http://apidocs.loopback.io/loopback/#persistedmodel-updateall) method.
-Note the lack of `{ where : ... }` in the argument.
-
-```javascript
-var myModel = req.app.models.Thing;
-var theId = 12;
-myModel.updateAll( {id: theId}, {regionId: null}, function(err, results) {
-	return callback(err, results);
-});
-```
-
-More examples, this time in a call to [destroyAll()](http://apidocs.loopback.io/loopback/#persistedmodel-destroyall):
-
-```javascript
-var RoleMapping = app.models.RoleMapping;
-RoleMapping.destroyAll( { principalId: userId }, function(err, obj) { ... } );
-```
-
-To delete all records where the cost property is greater than 100:
-
-```javascript
-productModel.destroyAll({cost: {gt: 100}}, function(err, obj) { ... });
-```
-
-### Default scopes with where filters
-
-Adding a `scope` to a model definition (in the [`model.json` file](Model-definition-JSON-file.html))
-automatically adds a method to model called `defaultScope()`. LoopBack will call this method whenever a model is created, updated, or queried.
-
-{% include tip.html content="Default scopes with a `where` filter may not work as you expect!
-" %}
-
-Each time a model instance is created or updated, the generated `defaultScope()` method will modify the model's properties
-matching the `where` filter to enforce the values specified.
-
-If you don't want to have the default scope applied in this way, use named scopes where possible.
-
-If you must use a default scope, but don't want it to affect `upsert()`, for example, simply override the model's `defaultScope()` method prior to calling `upsert()`.
-
-For  example:
-
-```javascript
-var defaultScope = Report.defaultScope;
-  Report.defaultScope = function(){};
-  Report.upsert({id: reportId, 'deleted': true}, function(...) {
-    Report.defaultScope = defaultScope;
-    ...
-  });
-```
-
-## Operators
-
-This table describes the operators available in "where" filters. See [Examples](#examples) below.
-
-| Operator  | Description|
-| ------------- | ------------- |
-| eq | Equivalence. See [examples](#equivalence) below.|
-| and | Logical AND operator. See [AND and OR operators](#and-and-or-operators) and [examples](#and--or) below.|
-| or | Logical OR operator. See [AND and OR operators](#and-and-or-operators) and [examples](#and--or) below.|
-| gt, gte | Numerical greater than (&gt;); greater than or equal (&gt;=). Valid only for numerical and date values. See [examples](#gt-and-lt) below. <br/><br/>  For Geopoint values, the units are in miles by default. See [Geopoint](http://apidocs.loopback.io/loopback-datasource-juggler/#geopoint) for more information.|
-| lt, lte | Numerical less than (&lt;); less than or equal (&lt;=). Valid only for numerical and date values. <br/><br/>For geolocation values, the units are in miles by default. See [Geopoint](http://apidocs.loopback.io/loopback-datasource-juggler/#geopoint) for more information. |
-| between | True if the value is between the two specified values: greater than or equal to first value and less than or equal to second value. See [examples](#gt-and-lt) below. <br/><br/> For geolocation values, the units are in miles by default. See [Geopoint](http://apidocs.loopback.io/loopback-datasource-juggler/#geopoint) for more information.|
-| inq, nin | In / not in an array of values. See [examples](#inq) below.|
-| near | For geolocations, return the closest points, sorted in order of distance. Use with `limit` to return the _n_ closest points. See [examples](#near) below.|
-| neq | Not equal (!=) |
-| like, nlike | LIKE / NOT LIKE operators for use with regular expressions. The regular expression format depends on the backend data source.  See [examples](#like-and-nlike) below. |
-| like, nlike, options: i| LIKE / NOT LIKE operators for use with regular expressions with the case insensitive flag. It is supported by the memory and MongoDB connectors. The options property set to 'i' tells LoopBack that it should do case-insensitive matching on the required property.
-
-### AND and OR operators
-
-Use the AND and OR operators to create compound logical filters based on simple where filter conditions, using the following syntax.
-
-{% include code-caption.html content="Node API" %}
-```javascript
-{where: {<and|or>: [condition1, condition2, ...]}}
-```
-
-**REST**
-
-```
-[where][<and|or>][0]condition1&[where][<and|or>]condition2...
-```
-
-Where _condition1_ and _condition2_ are a filter conditions.
-
-See [examples](#examples) below.
-
-### Regular expressions
-
-You can use regular expressions in a where filter, with the following syntax. You can use a regular expression in a where clause for updates and deletes, as well as queries.
-
-Essentially, `regexp` is just like an operator in which you provide a regular expression value as the comparison value.
-
-{% include tip.html content="A regular expression value can also include one or more [flags](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Advanced_searching_with_flags).  For example, append `/i` to the regular expression to perform a case-insensitive match.
-" %}
-
-{% include code-caption.html content="Node API" %}
-
-```javascript
-{where: {property: {regexp: <expression>}}}
-```
-
-Where `<expression>` can be a:
-
-* String defining a regular expression (for example, `'^foo'` ).
-* Regular expression literal (for example, `/^foo/` ).
-* Regular expression object (for example, `new RegExp(/John/)`).
-
-Or, in a simpler format:
-
-```javascript
-{where: {property: <expression>}}}
-```
-
-Where `<expression>` can be a:
-
-* Regular expression literal (for example, `/^foo/` ).
-* Regular expression object (for example, `new RegExp(/John/)`).
-
-For more information on JavaScript regular expressions,
-see [Regular Expressions (Mozilla Developer Network)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions).
-
-{% include tip.html content="The above where clause syntax is for queries.
-For updates and deletes, omit the `{ where : ... }` wrapper.
-See [Where clause for other methods](#where-clause-for-other-methods) below.
-" %}
-
-For example, this query returns all cars for which the model starts with a capital "T":
-
-```javascript
-Cars.find( {"where": {"model": {"regexp": "^T"}}} );
-```
-
-Or, using the simplified form:
-
-```javascript
-Cars.find( {"where": {"model": /^T/} } );
-```
-
-**REST**
-
-```
-filter[where][property][regexp]=expression
-```
-
-Where:
-
-* _property_ is the name of a property (field) in the model being queried.
-* _expression_ is the JavaScript regular expression string.
-See [Regular Expressions (Mozilla Developer Network)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions).
-
-A regular expression value can also include one or more [flags](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Advanced_searching_with_flags).
-For example, append `/i` to the regular expression to perform a case-insensitive match.
-
-{% include important.html content="When using a regular expression flag with the REST API,
-you _must_ precede the regular expression with a slash character (`/`).
-" %}
-
-The following REST query returns all cars for which the model starts with a capital "T"::
-
-```
-/api/cars?filter[where][model][regexp]=^T
-```
-
-
-The following REST query returns all models that start with either an uppercase "T" or lowercase "t":
-
-```
-/api/cars?filter[where][model][regexp]=/^t/i
-```
-
-Note that since the regular expression includes a flag, it is preceded by a slash (`/`).
-
-## Examples
-
-### Equivalence
-
-Weapons with name M1911:
-
-**REST**
-
-```
-/weapons?filter[where][name]=M1911
-```
-
-Cars where carClass is "fullsize":
-
-**REST**
-
-```
-/api/cars?filter[where][carClass]=fullsize
-/api/cars?filter[where][carClass][eq]=fullsize
-```
-
-Equivalently, in Node:
-
-```javascript
-Cars.find({ where: {carClass:'fullsize'} });
-Cars.find({ where: {carClass:{'eq':'fullsize'}} }); // full condition syntax
-```
-
-### gt and lt
-
-```javascript
-ONE_MONTH = 30 * 24 * 60 * 60 * 1000;  // Month in milliseconds
-transaction.find({
-      where: {
-        userId: user.id,
-        time: {gt: Date.now() - ONE_MONTH}
-      }
-    }
-```
-
-For example, the following query returns all instances of the employee model using a _where_ filter that specifies a date property after (greater than) the specified date:
-
-```
-/employees?filter[where][date][gt]=2014-04-01T18:30:00.000Z
-```
-
-The same query using the Node API:
-
-```javascript
-Employees.find({
-  where: {
-    date: {gt: new Date('2014-04-01T18:30:00.000Z')}
-  }
-});
-```
-
-The top three weapons with a range over 900 meters:
-
-```
-/weapons?filter[where][effectiveRange][gt]=900&filter[limit]=3
-```
-
-Weapons with audibleRange less than 10:
-
-```
-/weapons?filter[where][audibleRange][lt]=10
-```
-
-### and / or
-
-The following code is an example of using the "and" operator to find posts where the title is "My Post" and content is "Hello".
-
-```javascript
-Post.find({where: {and: [{title: 'My Post'}, {content: 'Hello'}]}},
-          function (err, posts) {
-            ...
-});
-```
-
-Equivalent in REST:
-
-```
-?filter[where][and][0][title]=My%20Post&filter[where][and][1][content]=Hello
-```
-
-Example using the "or" operator to finds posts that either have title of "My Post" or content of "Hello".
-
-```javascript
-Post.find({where: {or: [{title: 'My Post'}, {content: 'Hello'}]}},
-          function (err, posts) {
-            ...
-});
-```
-
-More complex example. The following expresses `(field1= foo and field2=bar) OR field1=morefoo`:
-
-```javascript
+```json
 {
-   or: [
-     { and: [{ field1: 'foo' }, { field2: 'bar' }] },
-     { field1: 'morefoo' }
-   ]
- }
-```
-
-### between
-
-Example of between operator:
-
-```
-filter[where][price][between][0]=0&filter[where][price][between][1]=7
-```
-
-In Node API:
-
-```javascript
-Shirts.find({where: {size: {between: [0,7]}}}, function (err, posts) { ... } )
-```
-
-### near
-
-The `where.<field>.near` filter is different from other where filters: most where filters **limit**the number of records returned,
-whereas `near` **orders** them, making it more like a SQL `order by` clause.
-By combining it with [`limit`](Limit-filter.html), you can create a query to get, for example, the **three records nearest to a given location**.
-
-For example:
-
-```
-/locations?filter[where][geo][near]=153.536,-28.1&filter[limit]=3
-```
-
-GeoPoints can be expressed in any of the following ways:
-
-```javascript
-location = new GeoPoint({lat: 42.266271, lng: -72.6700016}); // GeoPoint
-location = '42.266271,-72.6700016';                          // String
-location = [42.266271, -72.6700016];                         // Array
-location = {lat: 42.266271, lng: -72.6700016};               // Object Literal
-
-Restaurants.find({where: {geo: {near: location }}}, function callback(...
-```
-
-### near (ordering _and limiting by distance_)
-
-The near filter can take two additional properties:
-
-*   `maxDistance`
-*   `unit`
-
-When `maxDistance` is included in the filter, near behaves more like a typical where filter, limiting results to those within a given distance to a location.
-By default, `maxDistance` measures distance in **miles**.
-
-Example of finding the all restaurants within two miles of a given GeoPoint:
-
-```javascript
-var userLocation = new GeoPoint({
-  lat: 42.266271,
-  lng: -72.6700016
-});
-var resultsPromise = Restaurants.find({
-  where: {
-    location: {
-      near: userLocation,
-      maxDistance: 2
-    }
+    "id": "8be4d280-0978-11f0-85c4-17a4d49812dc",
+    "workorderNumber": "API-NXT312",
+    "sku": "Part-AllFather",
+    "engineeringPart": "Part-AllFather",
+    "partDesc": "Part-AllFather",
+    "productRev": null,
+    "quantity": 2,
+    "issueSufficientQuantity": 1,
+    "priority": 20,
+    "createdAt": "2025/03/25",
+    "releasedAt": "2025/02/18",
+    "expectedDate": "2030-03-18T08:00:00.000Z",
+    "start": "2025/05/06 17:10:25",
+    "end": "--",
+    "synced": "2025-03-25T12:56:19.619Z",
+    "parentWorkorderNumber": "parentWorkorderNumber-Updated",
+    "project": {
+      "description": "project-description-Updated",
+      "projectNumber": "project-projectNumber-Updated"
+    },
+    "statusId": "3e8c75d1-3b7b-4416-a525-a4441056e9bf",
+    "statusName": "In Progress",
+    "statusType": "WO.STATUSES.IN_PROGRESS",
+    "erpStatus": "erpStatus-Updated",
+    "name": "Updated",
+    "workflowRecordId": "72917d44-dcfe-4f19-b53f-c581444bc612",
+    "nextChapterIds": [],
+    "isSerial": true,
+    "customer": {
+      "accountNumber": "customer-accountNumber-Updated",
+      "accountName": "customer-accountName-Updated"
+    },
+    "issueStarted": false,
+    "rmaNumber": "Update-rmaNumber",
+    "serviceType": "Update-serviceType",
+    "callType": "Update-callType",
+    "orderNumber": "Update-orderNumber",
+    "orderLine": "Update-orderLine",
+    "source": "local",
+    "externalType": "workorder",
+    "assignedUsers": [
+      "64b985e0-be17-11ef-843b-516dcaa4b44c"
+    ],
+    "extraProperties": null,
+    "erpProductionStartDate": "2030-02-18T10:39:00.559Z",
+    "erpProductionEndDate": "2030-02-18T07:39:00.559Z",
+    "runningOnOldVersion": false,
+    "changeLog": [
+      {
+        "id": "dd886506-f0d5-4e28-9ba7-9fbdeb570139",
+        "type": "WORKORDER_STATUS_CHANGE",
+        "date": "2025-03-25T12:56:19.619Z",
+        "userId": null,
+        "oldStatusId": null,
+        "newStatusId": "065df9c5-074e-4714-a239-9ee346e14465",
+        "oldStatusName": null,
+        "newStatusName": "New",
+        "auto": true,
+        "fields": null
+      },
+      {
+        "id": "8facd770-030c-4fcf-98de-399e21488fb8",
+        "type": "WORKORDER_STATUS_CHANGE",
+        "date": "2025-03-25T12:57:42.722Z",
+        "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+        "oldStatusId": "065df9c5-074e-4714-a239-9ee346e14465",
+        "newStatusId": "3e8c75d1-3b7b-4416-a525-a4441056e9bf",
+        "oldStatusName": "New",
+        "newStatusName": "In Progress",
+        "auto": false,
+        "fields": null
+      },
+      {
+        "id": "2080e04f-6c3e-495a-b17f-2e93faf5346c",
+        "type": "WORKORDER_STATUS_CHANGE",
+        "date": "2025-08-31T10:53:45.974Z",
+        "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+        "oldStatusId": "3e8c75d1-3b7b-4416-a525-a4441056e9bf",
+        "newStatusId": "bb63e9d7-7d78-44ca-ad9a-5046bc0d9ce9",
+        "oldStatusName": "In Progress",
+        "newStatusName": "End",
+        "auto": false,
+        "fields": null
+      },
+      {
+        "id": "e009a8d7-1681-466f-913c-f09ec04ad6a4",
+        "type": "WORKORDER_STATUS_CHANGE",
+        "date": "2025-08-31T10:53:51.054Z",
+        "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+        "oldStatusId": "bb63e9d7-7d78-44ca-ad9a-5046bc0d9ce9",
+        "newStatusId": "3e8c75d1-3b7b-4416-a525-a4441056e9bf",
+        "oldStatusName": "End",
+        "newStatusName": "In Progress",
+        "auto": false,
+        "fields": null
+      }
+    ],
+    "workorderTypeId": "f11cd17f-97c3-4562-9a2b-c475fe290e50",
+    "parentWorkorderId": null,
+    "workflowName": "Workflow-AllFather",
+    "customerDiagnosis": "customerDiagnosis-Updated",
+    "description": "description-Updated",
+    "faultDescription": "faultDescription-Updated",
+    "fixDescription": "fixDescription-Updated",
+    "malfunctionCode": "malfunctionCode-Updated",
+    "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+    "created": "2025-03-25T12:56:19.624Z",
+    "groups": [],
+    "bulkProduction": false,
+    "createStock": true,
+    "forms": [],
+    "locks": [],
+    "cycleTime": "4 months, 8 days, 20 hours, 13 minutes, 57 seconds",
+    "netTime": "27 minutes, 52 seconds",
+    "workflowVersion": "4",
+    "serials": ", "
   }
-});
-```
+  ```
 
-To change the units of measurement, specify `unit` property to one of the following:
-
-* `kilometers`
-* `meters`
-* `miles`
-* `feet`
-* `radians`
-* `degrees`
-
-For example, to change the query above to use kilometers instead of miles:
-
-```javascript
-var resultsPromise = Restaurants.find({
-  where: {
-    location: {
-      near: userLocation,
-      maxDistance: 2,
-      unit: 'kilometers'
-    }
-  }
-});
-```
-
-{% include warning.html content="Spell Carefully!
-
-If `unit` value is mistyped, for example `'mile'` instead of `'miles'`, LoopBack will silently ignore the filter!
-" %}
-
-### like and nlike
-
-The like and nlike (not like) operators enable you to match SQL regular expressions. The regular expression format depends on the backend data source.
-
-Example of like operator:
-
-```javascript
-Post.find({where: {title: {like: 'M.-st'}}}, function (err, posts) { ... });
-```
-
-Example of nlike operator:
-
-```javascript
-Post.find({where: {title: {nlike: 'M.-XY'}}}, function (err, posts) {
-```
-
-When using the memory connector:
-
-```javascript
-User.find({where: {name: {like: '%St%'}}}, function (err, posts) { ... });
-User.find({where: {name: {nlike: 'M%XY'}}}, function (err, posts) { ... });
-```
-
-### like and nlike insensitive
-```javascript
-var pattern = new RegExp('.*'+query+'.*', "i"); /* case-insensitive RegExp search */
-Post.find({ where: {title: { like: pattern} } },
-```
-Via the REST API:
-```
-?filter={"where":{"title":{"like":"someth.*","options":"i"}}}
-```
-
-### inq
-
-The inq operator checks whether the value of the specified property matches any of the values provided in an array. The general syntax is:
-
-```javascript
-{where: { property: { inq: [val1, val2, ...]}}}
-```
-
-Where:
-
-* _property_ is the name of a property (field) in the model being queried.
-* _val1, val2_, and so on, are literal values in an array.
-
-Example of inq operator:
-
-```javascript
-Posts.find({where: {id: {inq: [123, 234]}}},
-  function (err, p){... });
-```
-
-REST:
-
-```
-/medias?filter[where][keywords][inq]=foo&filter[where][keywords][inq]=bar
-```
-
-Or
-
-```
-?filter={"where": {"keywords": {"inq": ["foo", "bar"]}}}
-```
-
-## order
----
-title: "Order filter"
-lang: en
-layout: page
-keywords: LoopBack
-tags:
-sidebar: lb3_sidebar
-permalink: /doc/en/lb3/Order-filter.html
-summary:
 ---
 
-An _order_ filter specifies how to sort the results: ascending (ASC) or descending (DESC) based on the specified property.
+### **ProductionEntity.show**
 
-### REST API
+Represents the status and configuration of a production entity (e.g., a machine).
+Includes statuses, triggers, OPC UA parameters, and metadata.
 
-Order by one property:
-
-<pre>
-filter[order]=<i>propertyName</i> <ASC|DESC>
-</pre>
-
-Order by two or more properties:
-
-<pre>
-filter[order][0]=<i>propertyName</i> <ASC|DESC>&filter[order][1]=<i>propertyName</i>=<ASC|DESC>...
-</pre>
-
-Where:
-
-* _propertyName_ is the name of the property (field) to sort by.
-* `<ASC|DESC>` signifies either ASC for ascending order or DESC for descending order.
-
-You can also use [stringified JSON format](Querying-data.html#using-stringified-json-in-rest-queries) in a REST query.
-
-{% include note.html content="Configure default ordering in [default scope](Model-definition-JSON-file.html#default-scope).
-" %}
-
-### Node API
-
-{% include content/angular-methods-caveat.html lang=page.lang %}
-
-Order by one property:
-
-<pre>
-{ order: '<i>propertyName</i> <ASC|DESC>' }
-</pre>
-
-Order by two or more properties:
-
-<pre>
-{ order: ['<i>propertyName</i> <ASC|DESC>', '<i>propertyName</i> <ASC|DESC>',...] }
-</pre>
-
-Where:
-
-* _propertyName_ is the name of the property (field) to sort by.
-* `<ASC|DESC>` signifies either ASC for ascending order or DESC for descending order.
-
-<div class="sl-hidden"><strong>REVIEW COMMENT from Rand</strong><br>
-  <p>I could not get multiple sort fields to work with REST. I would expect to be able to sort by (A,B) where it sorts by A and then by B:</p>
-  <p><code>filter[order]=<em>propertyName</em> &lt;ASC|DESC&gt;,<em>propertyName</em> &lt;ASC|DESC&gt;, ...</code></p>
-  <p>But for example</p>
-  <p><a rel="nofollow">http://localhost:3000/api/cars?filter[order]=color%20ASC,id%20ASC</a></p>
-  <p>Does not seem to be sorted in any order.</p>
-  <p>Nor does <a rel="nofollow">http://localhost:3000/api/cars?filter[order][0]=color%20ASC[order][1]=make%20ASC</a></p>
-  <p><u>rfeng: </u>filter[order][0]=color%20ASC&amp;filter[order][1]=make%20ASC should be used.</p>
-  <p><strong>Also</strong>: Is there any way to sort numerical properties as numbers instead of string? For example, if I sort by ID the records are returned in this order: 1, 10, 100, 101, 102, ..., 11, 110, 111, ...</p>
-</div>
-
-### Examples
-
-Return the three loudest three weapons, sorted by the `audibleRange` property:
-
-**REST**
-
-`/weapons?filter[order]=audibleRange%20DESC&filter[limit]=3`
-
-{% include code-caption.html content="Node API" %}
-```javascript
-weapons.find({
-  order: 'audibleRange DESC',
-  limit: 3
-});
+```json
+{
+    "id": "448ff430-edf5-11ef-8091-bdb4b30dfefc",
+    "name": "SPO-M",
+    "productionEntityTypeId": "54e8c480-aa6e-11ef-9d0f-8b52b2dec079",
+    "status": "Down",
+    "statusId": "78910f30-ffd5-49c4-91ad-14283b1a1588",
+    "statuses": [
+      {
+        "id": "308c8180-a912-493a-a0fd-75c784d9ec8f",
+        "name": "Up",
+        "color": "#b5e61d",
+        "status": "UP",
+        "deletedAt": null
+      },
+      {
+        "id": "78910f30-ffd5-49c4-91ad-14283b1a1588",
+        "name": "Down",
+        "color": "#f09574",
+        "status": "DOWN",
+        "deletedAt": null
+      }
+    ],
+    "triggers": [
+      {
+        "id": "4de2f047-d5db-43a3-83ea-949d767e8eb0",
+        "name": "מכונה פעילה | Boolean_01  Equals true  Or   Boolean_02  Equals true  Or   Boolean_03  Equals true -> Change Status -> UP",
+        "conditions": [
+          {
+            "id": "cbdd93e5-b44f-47ef-bcd0-cd60d5ecc734",
+            "type": "OR",
+            "values": [
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1006",
+                "type": "boolean",
+                "operator": "equal",
+                "value": true,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1006"
+              },
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive2",
+                "type": "boolean",
+                "operator": "equal",
+                "value": true,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive2"
+              },
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive3",
+                "type": "boolean",
+                "operator": "equal",
+                "value": true,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive3"
+              }
+            ],
+            "actions": [
+              {
+                "principleType": "changeStatus",
+                "principleId": "308c8180-a912-493a-a0fd-75c784d9ec8f",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "conditionPassedById": {
+          "cbdd93e5-b44f-47ef-bcd0-cd60d5ecc734": false
+        }
+      },
+      {
+        "id": "4ab3d2bb-9cc9-419e-83a3-b55a96ca264b",
+        "name": "מכונה לא פעילה | When Boolean_01 Equals false And Boolean_02 Equals false And Boolean_03 Equals false -> Change Status-> Down",
+        "conditions": [
+          {
+            "id": "a37aee47-bbd8-418e-ba71-eb718892d4c4",
+            "type": "AND",
+            "values": [
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1006",
+                "type": "boolean",
+                "operator": "equal",
+                "value": false,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1006"
+              },
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive2",
+                "type": "boolean",
+                "operator": "equal",
+                "value": false,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive2"
+              },
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive3",
+                "type": "boolean",
+                "operator": "equal",
+                "value": false,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive3"
+              }
+            ],
+            "actions": [
+              {
+                "principleType": "changeStatus",
+                "principleId": "78910f30-ffd5-49c4-91ad-14283b1a1588",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "conditionPassedById": {
+          "a37aee47-bbd8-418e-ba71-eb718892d4c4": true
+        }
+      },
+      {
+        "id": "a5406c27-48cb-45a9-844e-83d0bdcf435a",
+        "name": "Tempature_01  Equals 10  And   Temperature_02  Equals 10 -> Change Status->Up",
+        "conditions": [
+          {
+            "id": "f8273f5f-40c9-43ce-82c4-ba6beabbd449",
+            "type": "AND",
+            "values": [
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1002",
+                "type": "double",
+                "operator": "equal",
+                "value": 10,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1002"
+              },
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.Temperature2",
+                "type": "double",
+                "operator": "equal",
+                "value": 10,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.Temperature2"
+              }
+            ],
+            "actions": [
+              {
+                "principleType": "changeStatus",
+                "principleId": "308c8180-a912-493a-a0fd-75c784d9ec8f",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "conditionPassedById": {
+          "f8273f5f-40c9-43ce-82c4-ba6beabbd449": false
+        }
+      },
+      {
+        "id": "806463ee-640e-4c1d-ae40-5707fe66f0ce",
+        "name": "Boolean_01  Equals true -> Change Status ->Down",
+        "conditions": [
+          {
+            "id": "ddec9bcf-0306-46d5-9db5-6532a14d8737",
+            "type": "and",
+            "values": [
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1006",
+                "type": "boolean",
+                "operator": "equal",
+                "value": true,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1006"
+              }
+            ],
+            "actions": [
+              {
+                "principleType": "changeStatus",
+                "principleId": "78910f30-ffd5-49c4-91ad-14283b1a1588",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "conditionPassedById": {
+          "ddec9bcf-0306-46d5-9db5-6532a14d8737": false
+        }
+      },
+      {
+        "id": "b3f2e980-cd69-41e0-a67c-af2e4fa27a3d",
+        "name": "Temperature_02  Equals 57 -> Status Down",
+        "conditions": [
+          {
+            "id": "f58ec2f7-b0ed-4222-bb9b-cd520efed828",
+            "type": "and",
+            "values": [
+              {
+                "field": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.Temperature2",
+                "type": "double",
+                "operator": "equal",
+                "value": 57,
+                "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.Temperature2"
+              }
+            ],
+            "actions": [
+              {
+                "principleType": "changeStatus",
+                "principleId": "78910f30-ffd5-49c4-91ad-14283b1a1588",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "conditionPassedById": {
+          "f58ec2f7-b0ed-4222-bb9b-cd520efed828": false
+        }
+      }
+    ],
+    "parameters": [
+      {
+        "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1006",
+        "nodeId": "ns=1;i=1006",
+        "name": "1:IsActive",
+        "niceName": "Boolean_01",
+        "precision": null,
+        "maxLogPeriod": 1440,
+        "parameterType": "OPC UA",
+        "type": "boolean",
+        "serverId": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2"
+      },
+      {
+        "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive2",
+        "nodeId": "ns=1;s=FakeMachine.IsActive2",
+        "name": "1:IsActive2",
+        "niceName": "Boolean_02",
+        "precision": null,
+        "maxLogPeriod": 1440,
+        "parameterType": "OPC UA",
+        "type": "boolean",
+        "serverId": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2"
+      },
+      {
+        "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.IsActive3",
+        "nodeId": "ns=1;s=FakeMachine.IsActive3",
+        "name": "1:IsActive3",
+        "niceName": "Boolean_03",
+        "precision": null,
+        "maxLogPeriod": 720,
+        "parameterType": "OPC UA",
+        "type": "boolean",
+        "serverId": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2"
+      },
+      {
+        "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;i=1002",
+        "nodeId": "ns=1;i=1002",
+        "name": "1:Temperature",
+        "niceName": "Tempature_01",
+        "precision": 2,
+        "maxLogPeriod": 1440,
+        "parameterType": "OPC UA",
+        "type": "number",
+        "serverId": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2"
+      },
+      {
+        "id": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2_nextplus_separator_ns=1;s=FakeMachine.Temperature2",
+        "nodeId": "ns=1;s=FakeMachine.Temperature2",
+        "name": "1:Temperature2",
+        "niceName": "Temperature_02",
+        "precision": 2,
+        "maxLogPeriod": 1440,
+        "parameterType": "OPC UA",
+        "type": "number",
+        "serverId": "ae2f43e0-96a8-11ef-85a1-e98a69b5e0f2"
+      }
+    ],
+    "items": [],
+    "created": "2025-02-18T12:38:34.483Z",
+    "modified": "2025-09-10T10:32:46.362Z",
+    "serverModified": "2025-09-10T10:32:46.362Z",
+    "deletedAt": null,
+    "deletedBy": null,
+    "UserId": "4bec90d0-fcf3-11ec-b3e7-db9aace08fcb",
+    "entityType": {
+      "id": "54e8c480-aa6e-11ef-9d0f-8b52b2dec079",
+      "name": "Metal Laser Machine-Update",
+      "created": "2024-11-24T14:13:51.944Z",
+      "modified": "2024-12-29T14:16:07.879Z",
+      "serverModified": "2024-12-29T14:16:07.879Z",
+      "deletedAt": null,
+      "deletedBy": null,
+      "UserId": "64b985e0-be17-11ef-843b-516dcaa4b44c"
+    }
+  }
 ```
+
+---
+
+### **WorkflowSessionItem.report**
+
+Represents progress, session nodes, workflows, and related time logs.
+Useful for tracking execution and operator activity within a workflow session.
+
+Note that as session report might be multi level, the frist session in the array is the main session.
+
+```json
+[
+    {
+      "id": "8be71c70-0978-11f0-85c4-17a4d49812dc",
+      "timeReports": [],
+      "sessionNodes": [
+        {
+          "sessionNodeId": "b6216de0-28d3-11f0-b430-2bf38e340603_f9819262-c5e8-42cb-8764-ff046285591d_0",
+          "nodeId": "f9819262-c5e8-42cb-8764-ff046285591d",
+          "signs": [
+            {
+              "id": "0",
+              "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb"
+            }
+          ],
+          "status": "done",
+          "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb",
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603"
+        },
+        {
+          "sessionNodeId": "b6216de0-28d3-11f0-b430-2bf38e340603_5826db0c-9072-4777-8f12-13d1b617cb31_1",
+          "nodeId": "5826db0c-9072-4777-8f12-13d1b617cb31",
+          "signs": [
+            {
+              "id": "0",
+              "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb"
+            }
+          ],
+          "status": "done",
+          "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603"
+        },
+        {
+          "sessionNodeId": "b6216de0-28d3-11f0-b430-2bf38e340603_cc7a54de-c3c0-48fa-9577-81bf4efbd17c_2",
+          "nodeId": "cc7a54de-c3c0-48fa-9577-81bf4efbd17c",
+          "signs": [],
+          "status": "new",
+          "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603"
+        }
+      ],
+      "nodesPath": [
+        {
+          "sessionNodeId": "b6216de0-28d3-11f0-b430-2bf38e340603_f9819262-c5e8-42cb-8764-ff046285591d_0",
+          "nodeId": "f9819262-c5e8-42cb-8764-ff046285591d",
+          "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb",
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+          "hidden": false
+        },
+        {
+          "sessionNodeId": "b6216de0-28d3-11f0-b430-2bf38e340603_5826db0c-9072-4777-8f12-13d1b617cb31_1",
+          "nodeId": "5826db0c-9072-4777-8f12-13d1b617cb31",
+          "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb",
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+          "hidden": false
+        },
+        {
+          "sessionNodeId": "b6216de0-28d3-11f0-b430-2bf38e340603_cc7a54de-c3c0-48fa-9577-81bf4efbd17c_2",
+          "nodeId": "cc7a54de-c3c0-48fa-9577-81bf4efbd17c",
+          "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb",
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+          "hidden": false
+        }
+      ],
+      "variables": [],
+      "customFields": [],
+      "usedTools": [],
+      "status": "In progress",
+      "progress": 66,
+      "netTimeSpent": 1672.8400000000001,
+      "start": "2025/05/06 17:10:28",
+      "end": "--",
+      "stockIds": [
+        "8bea29b0-0978-11f0-85c4-17a4d49812dc"
+      ],
+      "workorderId": "8be4d280-0978-11f0-85c4-17a4d49812dc",
+      "serials": null,
+      "partSku": "Part-AllFather",
+      "partRev": null,
+      "bom": [],
+      "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+      "workorder": {
+        "id": "8be4d280-0978-11f0-85c4-17a4d49812dc",
+        "workorderNumber": "API-NXT312",
+        "sku": "Part-AllFather",
+        "productRev": null,
+        "name": "Updated",
+        "isSerial": true,
+        "createStock": true
+      },
+      "workflowObject": {
+        "id": "b6216de0-28d3-11f0-b430-2bf38e340603",
+        "name": "Workflow-AllFather",
+        "normalizedVersion": "4",
+        "variables": [],
+        "bom": [],
+        "chaptersByNodeId": [],
+        "bomByWorkflowId": [],
+        "_globalNodes": [
+          {
+            "id": "f9819262-c5e8-42cb-8764-ff046285591d",
+            "name": "Step1",
+            "title": "Step1",
+            "description": "",
+            "plainDescription": " ",
+            "x": -225.00666666666672,
+            "y": -537.835,
+            "is_root": true,
+            "serial": false,
+            "optional": false,
+            "signsSettings": {
+              "signs": [
+                {
+                  "id": "0",
+                  "name": "Normal",
+                  "certificateIds": []
+                }
+              ],
+              "electronicSignature": false,
+              "ordered": false,
+              "multisign": false
+            },
+            "data": {},
+            "actCode": "001",
+            "bomItems": [],
+            "chapterId": null,
+            "listItemIds": [],
+            "expressions": [],
+            "resourceIds": [],
+            "toolIds": [],
+            "fieldIds": [],
+            "created": "2025-03-02T11:05:46.114Z",
+            "modified": "2025-05-04T12:25:24.795Z",
+            "serverModified": "2025-05-04T12:25:24.795Z",
+            "UserId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "originalNodeId": "f9819262-c5e8-42cb-8764-ff046285591d",
+            "triggers": []
+          },
+          {
+            "id": "5826db0c-9072-4777-8f12-13d1b617cb31",
+            "name": "Step2EEditor",
+            "title": "",
+            "description": "<p>שלום שלום שלום</p>\n<p>XXXXXXX</p>",
+            "plainDescription": "\nשלום שלום שלום\n\n\nXXXXXXX\n",
+            "x": -155.00666666666672,
+            "y": -327.835,
+            "is_root": false,
+            "serial": false,
+            "optional": false,
+            "signsSettings": {
+              "signs": [
+                {
+                  "id": "0",
+                  "name": "Normal",
+                  "certificateIds": []
+                }
+              ],
+              "ordered": false,
+              "multisign": false
+            },
+            "data": {},
+            "actCode": "",
+            "bomItems": [],
+            "chapterId": null,
+            "listItemIds": [],
+            "expressions": [],
+            "resourceIds": [],
+            "toolIds": [],
+            "fieldIds": [],
+            "created": "2025-03-02T11:05:52.872Z",
+            "modified": "2025-05-04T12:25:21.416Z",
+            "serverModified": "2025-05-04T12:25:21.416Z",
+            "UserId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "originalNodeId": "5826db0c-9072-4777-8f12-13d1b617cb31"
+          },
+          {
+            "id": "cc7a54de-c3c0-48fa-9577-81bf4efbd17c",
+            "name": "Step3",
+            "title": "Step3",
+            "description": "",
+            "plainDescription": " ",
+            "x": -275.0066666666667,
+            "y": -57.83499999999998,
+            "is_root": false,
+            "serial": false,
+            "optional": false,
+            "signsSettings": {
+              "signs": [
+                {
+                  "id": "0",
+                  "name": "Normal",
+                  "certificateIds": []
+                }
+              ],
+              "ordered": false,
+              "multisign": false
+            },
+            "data": {},
+            "actCode": "",
+            "bomItems": [],
+            "chapterId": null,
+            "listItemIds": [],
+            "expressions": [],
+            "resourceIds": [],
+            "toolIds": [],
+            "fieldIds": [],
+            "created": "2025-03-02T11:05:55.074Z",
+            "modified": "2025-03-02T11:06:06.209Z",
+            "serverModified": "2025-03-02T11:06:06.209Z",
+            "UserId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "originalNodeId": "cc7a54de-c3c0-48fa-9577-81bf4efbd17c"
+          }
+        ],
+        "_chapters": [],
+        "UserId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+        "userObject": {
+          "id": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+          "firstName": "roy!!",
+          "lastName": "Levi!!!!!!",
+          "displayName": "roy!! Levi!!!!!!"
+        }
+      },
+      "stocks": [
+        {
+          "id": "8bea29b0-0978-11f0-85c4-17a4d49812dc",
+          "kitStatus": false,
+          "serviceCalls": [],
+          "issueSufficientQuantity": 0,
+          "status": "IN_PROGRESS",
+          "serial": null,
+          "workorderNumber": "API-NXT312",
+          "sku": "Part-AllFather",
+          "skuDesc": "Part-AllFather",
+          "skuRev": null,
+          "priority": 0,
+          "indicator": 1,
+          "quantity": 1,
+          "start": "2025-05-06T14:10:28.059Z",
+          "end": null,
+          "expirationDate": null,
+          "stockStatus": "PENDING",
+          "source": "local",
+          "changeLog": [],
+          "priorityDocIds": [],
+          "otherId": null,
+          "_v": 3,
+          "invalidQuantity": 0,
+          "validQuantity": 1,
+          "productionStatus": "valid",
+          "availableQuantity": 0,
+          "productionQuantity": 0,
+          "actions": [],
+          "locationIds": [],
+          "workorderId": "8be4d280-0978-11f0-85c4-17a4d49812dc",
+          "stockIds": [],
+          "userModelIds": [],
+          "created": "2025-03-25T12:56:19.659Z",
+          "modified": "2025-05-06T14:10:25.769Z",
+          "serverModified": "2025-05-06T14:10:28.061Z",
+          "deletedAt": null,
+          "deletedBy": null,
+          "timeLogs": [],
+          "stockItems": [],
+          "workflowSessionItemId": "8be71c70-0978-11f0-85c4-17a4d49812dc",
+          "isSerial": true,
+          "kitItems": [],
+          "depth": 0
+        }
+      ],
+      "stockItems": [],
+      "serviceCalls": [],
+      "changeLogs": [],
+      "level": 0,
+      "sessionPart": {
+        "id": "0b9ca010-f372-11ef-9d49-e992021b6487",
+        "recordId": "810e15e8-d75b-408c-a2d8-eaaff42a49ee",
+        "name": "Part-AllFather",
+        "number": "Part-AllFather",
+        "is_avaliable": true,
+        "is_assembly": false,
+        "isCombinated": false,
+        "hasExpirationDate": false,
+        "timeTracking": false,
+        "cage_code": "",
+        "quantity": "",
+        "options": {
+          "hotspot_height": 0,
+          "hotspot_wight": 0,
+          "hotspot_font_size": 0,
+          "hotspot_opacity": ""
+        },
+        "description": "",
+        "imageReady": false,
+        "alternatives": [],
+        "nodes": [],
+        "convertible": [],
+        "shapes": [],
+        "combinationParts": [],
+        "methods": [],
+        "unitId": "6a87d625-a5ba-424a-bf63-118c5012b76a",
+        "productId": "",
+        "familyCode": "",
+        "familyDesc": "",
+        "revisions": [
+          {
+            "id": "bf6441d9-dbf8-4e29-90dd-6f4b3738c274",
+            "revision": "qwaedwwddw",
+            "valid": false,
+            "active": true,
+            "_documents": [],
+            "C_NumebrFieldRevision": null,
+            "C_DateFieldRevision": null
+          },
+          {
+            "id": "350406e8-5d06-4378-9d79-1c69d3043652",
+            "revision": "Rivvv",
+            "valid": true,
+            "active": true,
+            "_documents": [
+              {
+                "id": "340c367d-5911-49b0-b6b6-30cc34154667",
+                "title": "Link",
+                "type": "LINK",
+                "url": "https://qa.nextplus.io/#!/parts/edit/Part-AllFather",
+                "externalId": null,
+                "resourceId": null,
+                "C_Variable_Number": 10
+              }
+            ],
+            "C_NumebrFieldRevision": null,
+            "C_DateFieldRevision": null
+          }
+        ],
+        "isSerial": false,
+        "isManuallyIssued": false,
+        "isIssuedToKit": false,
+        "serialNumberRequiredAtStart": false,
+        "workorderNumbers": [
+          "API-NXT424",
+          "API-NXT87",
+          "API-NXT86",
+          "API-NXT66",
+          "API-NXT83",
+          "API-NXT68",
+          "API-NXT431",
+          "API-NXT67",
+          "API-NXT423",
+          "0"
+        ],
+        "serials": [],
+        "freeStock": false,
+        "autoCreate": "ACTIVE",
+        "changeLog": [
+          {
+            "id": "1af9e691-aaba-41c7-9532-6d6989b5b507",
+            "date": "2025-02-25T12:16:43.655Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "7ceceff1-7774-4c4b-8904-8f62fb1db17e",
+            "date": "2025-02-25T12:17:17.503Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "1a902256-6f32-4dc5-a1f7-38e24693a6a4",
+            "date": "2025-02-25T13:50:22.018Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "b83f46a2-9c6f-415d-8f3e-9556fbb0ca5b",
+            "date": "2025-02-25T13:55:59.060Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "afd0af97-e544-4866-85e3-dc05c71ef810",
+            "date": "2025-02-25T14:22:05.517Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "748a95ea-2bd1-4f7e-bc38-07fa106c7f58",
+            "date": "2025-02-25T14:22:42.794Z",
+            "type": "unitId",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "6a87d625-a5ba-424a-bf63-118c5012b76a",
+            "newValue": "e7597ee0-98c7-11ee-adba-edbd47a74226"
+          },
+          {
+            "id": "47e2962a-f292-4eab-a6f5-3fb675ad1b53",
+            "date": "2025-02-27T06:44:24.383Z",
+            "type": "unitId",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "e7597ee0-98c7-11ee-adba-edbd47a74226",
+            "newValue": "e15238c0-98c7-11ee-adba-edbd47a74226"
+          },
+          {
+            "id": "9905bcec-020e-4cfd-bd67-267c6ac0b016",
+            "date": "2025-02-27T06:44:24.383Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "81db6bb2-5b52-4e19-bcb5-b764a8857bda",
+            "date": "2025-03-11T06:14:46.314Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "993c9583-bfd5-4b06-b1e9-7c0cd20acfb3",
+            "date": "2025-03-11T06:14:50.956Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "cd3d770e-e131-4d53-a1ed-84d64cdf1f10",
+            "date": "2025-03-11T06:16:19.514Z",
+            "type": "serialNumberRequiredAtStart",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "618cbc78-565b-4560-a72f-941bf0630c79",
+            "date": "2025-03-11T06:16:25.888Z",
+            "type": "serialNumberRequiredAtStart",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "399d307b-b9fe-430d-8f92-8dd61f646c1e",
+            "date": "2025-03-11T06:16:40.335Z",
+            "type": "is_assembly",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "ec062382-5213-49ac-a698-f2f030af0767",
+            "date": "2025-03-11T06:16:40.335Z",
+            "type": "nodes",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": [],
+            "newValue": [
+              {
+                "recordId": "acdfb7da-c128-4747-bef7-03612ffa5b7f",
+                "quantity": 1,
+                "optional": false,
+                "number": "5259809",
+                "mrpDefault": true,
+                "infoOnly": false
+              }
+            ]
+          },
+          {
+            "id": "e0875d39-b2c4-4167-8ec7-d8159692cf37",
+            "date": "2025-03-11T11:03:50.416Z",
+            "type": "serialNumberRequiredAtStart",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "b54a029d-4d8b-4598-ba0d-90b3d46b8545",
+            "date": "2025-03-11T11:03:57.473Z",
+            "type": "serialNumberRequiredAtStart",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "d307e069-667d-4fd6-b958-ef595b220732",
+            "date": "2025-03-11T11:03:57.473Z",
+            "type": "hasExpirationDate",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "aed0d341-9120-4fcf-857e-65bc7f25e343",
+            "date": "2025-03-11T11:03:57.473Z",
+            "type": "isPhantom",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "f060681b-9634-4168-972e-9646e34f8459",
+            "date": "2025-03-11T11:04:20.316Z",
+            "type": "isCombinated",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "5e7c7936-5d6f-425a-bcc0-f4ea0c191e55",
+            "date": "2025-03-11T11:04:20.316Z",
+            "type": "combinationParts",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": [],
+            "newValue": [
+              "361651111"
+            ]
+          },
+          {
+            "id": "701dda9f-cb22-44d4-ad25-9e1acf9849fe",
+            "date": "2025-03-11T11:04:28.662Z",
+            "type": "isCombinated",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "8c070c11-5bd5-43b0-8565-c86da1f7b9ab",
+            "date": "2025-03-11T11:04:28.662Z",
+            "type": "combinationParts",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": [
+              "361651111"
+            ],
+            "newValue": []
+          },
+          {
+            "id": "48824a58-c88c-4e19-9517-1e3b44180b89",
+            "date": "2025-03-11T11:04:28.662Z",
+            "type": "nodes",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": [
+              {
+                "recordId": "acdfb7da-c128-4747-bef7-03612ffa5b7f",
+                "quantity": 1,
+                "optional": false,
+                "number": "5259809",
+                "mrpDefault": true,
+                "infoOnly": false
+              }
+            ],
+            "newValue": [
+              {
+                "recordId": "acdfb7da-c128-4747-bef7-03612ffa5b7f",
+                "quantity": 3,
+                "optional": false,
+                "number": "5259809",
+                "mrpDefault": true,
+                "infoOnly": false
+              }
+            ]
+          },
+          {
+            "id": "7dc1775e-1b51-455a-8dab-056704be9506",
+            "date": "2025-03-11T11:04:39.848Z",
+            "type": "is_assembly",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "cb045644-5822-4a6b-aa20-85597c1492c3",
+            "date": "2025-03-11T11:04:39.848Z",
+            "type": "alternatives",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": [],
+            "newValue": [
+              "4958372"
+            ]
+          },
+          {
+            "id": "049a312f-6ae2-40b3-ba3d-db4d9b4a7049",
+            "date": "2025-03-11T11:04:39.848Z",
+            "type": "nodes",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": [
+              {
+                "recordId": "acdfb7da-c128-4747-bef7-03612ffa5b7f",
+                "quantity": 3,
+                "optional": false,
+                "number": "5259809",
+                "mrpDefault": true,
+                "infoOnly": false
+              }
+            ],
+            "newValue": []
+          },
+          {
+            "id": "78a92671-3879-4668-8a23-cdca597f363d",
+            "date": "2025-03-11T11:04:44.915Z",
+            "type": "alternatives",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": [
+              "4958372"
+            ],
+            "newValue": []
+          },
+          {
+            "id": "5780a6b5-bdf1-4011-a54e-4d7d66c9504f",
+            "date": "2025-03-11T11:04:55.972Z",
+            "type": "bulkProduction",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "BY_UNIT",
+            "newValue": "YES"
+          },
+          {
+            "id": "80f358c5-e94c-4541-9e6c-ad08ee396fea",
+            "date": "2025-03-11T11:05:01.814Z",
+            "type": "autoCreate",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "ACTIVE",
+            "newValue": "REQUIRE_APPROVAL"
+          },
+          {
+            "id": "00f6388b-1ff9-4a2f-97fe-ff67b558e25c",
+            "date": "2025-03-11T11:05:01.814Z",
+            "type": "bulkProduction",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "YES",
+            "newValue": "BY_UNIT"
+          },
+          {
+            "id": "ae38b785-f327-40fc-9dc6-cd32c85928e1",
+            "date": "2025-03-11T11:05:07.314Z",
+            "type": "autoCreate",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "REQUIRE_APPROVAL",
+            "newValue": "ACTIVE"
+          },
+          {
+            "id": "53fbf050-efa5-4710-a6a9-7de7a692c2e2",
+            "date": "2025-03-11T11:05:07.314Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "8e00fb01-89c2-47c2-8043-447e36c5731d",
+            "date": "2025-03-11T11:05:13.553Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "751abc4d-5633-41fd-aa3a-04250b30658f",
+            "date": "2025-03-11T12:28:32.389Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "c37670d1-ebc8-4da7-809e-5f96dcaec1aa",
+            "date": "2025-03-11T12:28:53.534Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "c976219a-f3cc-4bad-b05a-14aa8e65f99f",
+            "date": "2025-03-17T16:08:03.639Z",
+            "type": "hasExpirationDate",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "f13fbae5-9e80-49d0-92d4-f87a595da404",
+            "date": "2025-03-17T16:08:03.639Z",
+            "type": "isPhantom",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "2ef71aff-791a-45b2-ba8a-641c3ba914fe",
+            "date": "2025-05-06T11:26:22.065Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          },
+          {
+            "id": "d41dce1a-f93a-4c52-84fb-b768a198f7d9",
+            "date": "2025-05-06T12:17:31.945Z",
+            "type": "unitId",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "e15238c0-98c7-11ee-adba-edbd47a74226",
+            "newValue": "e7597ee0-98c7-11ee-adba-edbd47a74226"
+          },
+          {
+            "id": "5fc16fb0-a0e8-4930-aa00-79781bae8d90",
+            "date": "2025-05-06T13:48:00.917Z",
+            "type": "unitId",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "e7597ee0-98c7-11ee-adba-edbd47a74226",
+            "newValue": "6a87d625-a5ba-424a-bf63-118c5012b76a"
+          },
+          {
+            "id": "a8a23b5a-7a61-4e42-9984-70606485211e",
+            "date": "2025-05-06T13:48:00.917Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": false,
+            "newValue": true
+          },
+          {
+            "id": "2332ea5b-bb39-4f65-a62c-cdf15ab97f1c",
+            "date": "2025-05-22T12:25:45.343Z",
+            "type": "name",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "Part-AllFather",
+            "newValue": "Part-AllFather-dESC"
+          },
+          {
+            "id": "a8c36bf6-688c-4ab6-8518-899976d02279",
+            "date": "2025-05-25T07:52:16.212Z",
+            "type": "name",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": "Part-AllFather-dESC",
+            "newValue": "Part-AllFather"
+          },
+          {
+            "id": "9339ee33-c763-4ddf-b1a0-44d75226e7e8",
+            "date": "2025-05-25T07:52:16.212Z",
+            "type": "isSerial",
+            "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+            "oldValue": true,
+            "newValue": false
+          }
+        ],
+        "isPhantom": false,
+        "bulkProduction": "BY_UNIT",
+        "managedByRevision": true,
+        "generateSerials": false,
+        "numerator": 109,
+        "paddingZeros": 0,
+        "pattern": "0000001-PE222211M-{{AUTO_NUMBER}}",
+        "created": "2025-02-25T12:14:21.841Z",
+        "modified": "2025-05-25T07:52:16.213Z",
+        "serverModified": "2025-06-10T07:45:38.407Z",
+        "deletedAt": null,
+        "deletedBy": null,
+        "_documents": [],
+        "C_Variable_Number": 10,
+        "currentRevision": {
+          "revision": null
+        }
+      },
+      "timeLogReports": [
+        {
+          "id": "b97109f0-2a87-11f0-bd5f-319db83ac8a4",
+          "workorderNumber": "API-NXT312",
+          "workorderId": "8be4d280-0978-11f0-85c4-17a4d49812dc",
+          "sku": "Part-AllFather",
+          "serials": [],
+          "sessionIds": [
+            "8be71c70-0978-11f0-85c4-17a4d49812dc"
+          ],
+          "recordType": "AUTOMATIC",
+          "chapterName": null,
+          "chapterId": null,
+          "type": "Normal Process",
+          "start": "2025-05-06T14:10:26.881Z",
+          "end": "2025-05-06T14:38:06.373Z",
+          "firstEnd": "2025-05-06T14:38:06.373Z",
+          "duration": 1659492,
+          "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb",
+          "changeLog": [],
+          "managerApprovalStatus": "NOT_NEEDED",
+          "managerApprovalId": null,
+          "managerApprovalTime": null,
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+          "comment": null,
+          "created": "2025-05-06T14:38:06.863Z",
+          "modified": "2025-05-06T14:38:06.863Z",
+          "serverModified": "2025-05-06T14:38:06.863Z",
+          "deletedAt": null,
+          "deletedBy": null,
+          "durationPerUnit": 1659492,
+          "userName": "Asaf Cohen"
+        },
+        {
+          "id": "e2114c30-32b1-11f0-af70-4d60a9b99477",
+          "workorderNumber": "API-NXT312",
+          "workorderId": "8be4d280-0978-11f0-85c4-17a4d49812dc",
+          "sku": "Part-AllFather",
+          "serials": [],
+          "sessionIds": [
+            "8be71c70-0978-11f0-85c4-17a4d49812dc"
+          ],
+          "recordType": "AUTOMATIC",
+          "chapterName": null,
+          "chapterId": null,
+          "type": "Normal Process",
+          "start": "2025-05-15T08:07:28.072Z",
+          "end": "2025-05-15T08:07:32.319Z",
+          "firstEnd": "2025-05-15T08:07:32.319Z",
+          "duration": 4247,
+          "userId": "727ec9e0-f0ff-11ea-bc0f-8b0f25f140e2",
+          "changeLog": [],
+          "managerApprovalStatus": "NOT_NEEDED",
+          "managerApprovalId": null,
+          "managerApprovalTime": null,
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+          "comment": null,
+          "created": "2025-05-17T00:00:03.187Z",
+          "modified": "2025-05-17T00:00:03.187Z",
+          "serverModified": "2025-05-17T00:00:03.187Z",
+          "deletedAt": null,
+          "deletedBy": null,
+          "durationPerUnit": 4247,
+          "userName": "roy!! Levi!!!!!!"
+        },
+        {
+          "id": "46a07ef0-8285-11f0-8d15-7b2eb845aed2",
+          "workorderNumber": "API-NXT312",
+          "workorderId": "8be4d280-0978-11f0-85c4-17a4d49812dc",
+          "sku": "Part-AllFather",
+          "serials": [],
+          "sessionIds": [
+            "8be71c70-0978-11f0-85c4-17a4d49812dc"
+          ],
+          "recordType": "AUTOMATIC",
+          "chapterName": null,
+          "chapterId": null,
+          "type": "Normal Process",
+          "start": "2025-08-26T14:02:08.177Z",
+          "end": "2025-08-26T14:02:17.278Z",
+          "firstEnd": "2025-08-26T14:02:17.278Z",
+          "duration": 9101,
+          "userId": "183272c0-fcf1-11ec-b3e7-db9aace08fcb",
+          "changeLog": [],
+          "managerApprovalStatus": "NOT_NEEDED",
+          "managerApprovalId": null,
+          "managerApprovalTime": null,
+          "workflowId": "b6216de0-28d3-11f0-b430-2bf38e340603",
+          "comment": null,
+          "created": "2025-08-26T14:02:17.567Z",
+          "modified": "2025-08-26T14:02:17.567Z",
+          "serverModified": "2025-08-26T14:02:17.567Z",
+          "deletedAt": null,
+          "deletedBy": null,
+          "durationPerUnit": 9101,
+          "userName": "Asaf Cohen"
+        }
+      ],
+      "productionEntityTransactions": [],
+      "productionEntityEvents": [],
+      "grossTime": "4 months, 9 days",
+      "netTime": "27:53",
+      "onlySignRecords": false,
+      "toolMaterial": false,
+      "filterdUsedToolIds": [],
+      "progressValue": "66%",
+      "plainTimeReports": [],
+      "generalDetails": true,
+      "title": "Workflow-AllFather | Part-AllFather",
+      "formsIds": [],
+      "workorderCustomFields": [
+        {
+          "type": "String",
+          "key": "C_SERIAL_NUMBER_SUFFIX",
+          "default": null,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "text",
+          "options": [],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_SERIAL_NUMBER_SUFFIX",
+          "value": null,
+          "$$hashKey": "object:6776"
+        },
+        {
+          "type": "Number",
+          "key": "C_aaaaaa",
+          "default": 5,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "number",
+          "options": [],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_aaaaaa",
+          "value": 5,
+          "$$hashKey": "object:6777"
+        },
+        {
+          "type": "String",
+          "key": "C_select_single_new",
+          "default": null,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "select",
+          "options": [
+            "8715700117805",
+            "3243245345",
+            "22123d"
+          ],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_select_single_new",
+          "value": null,
+          "$$hashKey": "object:6778"
+        },
+        {
+          "type": "Array",
+          "key": "C_select_test_scan_update",
+          "default": [],
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "select",
+          "options": [
+            "Adima1",
+            "Adima2",
+            "Adima3"
+          ],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_select_test_scan_update",
+          "value": [],
+          "$$hashKey": "object:6779"
+        },
+        {
+          "type": "String",
+          "key": "C_Test_Scan",
+          "default": null,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "text",
+          "options": [],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_Test_Scan",
+          "value": null,
+          "$$hashKey": "object:6780"
+        },
+        {
+          "type": "Date",
+          "key": "C_custom_date",
+          "default": null,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "date",
+          "options": [],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_custom_date",
+          "value": null,
+          "$$hashKey": "object:6781"
+        },
+        {
+          "type": "String",
+          "key": "C_select_single",
+          "default": null,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "select",
+          "options": [
+            "1",
+            "2",
+            "8715700117805"
+          ],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_select_single",
+          "value": null,
+          "$$hashKey": "object:6782"
+        },
+        {
+          "type": "String",
+          "key": "C_workorder_test_david",
+          "default": "Adima1",
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "select",
+          "options": [
+            "Adima1",
+            "Adima2",
+            "Adima3"
+          ],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_workorder_test_david",
+          "value": "Adima1",
+          "$$hashKey": "object:6783"
+        },
+        {
+          "type": "String",
+          "key": "C_ben_test_filed_scan",
+          "default": null,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "text",
+          "options": [],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_ben_test_filed_scan",
+          "value": null,
+          "$$hashKey": "object:6784"
+        },
+        {
+          "type": "Date",
+          "key": "C_Date_Scan_Test",
+          "default": null,
+          "display": true,
+          "searchable": true,
+          "filterable": true,
+          "element": "date",
+          "options": [],
+          "translatable": false,
+          "weight": 0,
+          "custom": true,
+          "title": "WO.C_Date_Scan_Test",
+          "value": null,
+          "$$hashKey": "object:6785"
+        }
+      ]
+    }
+  ]
+```
+
+---
+
+### **Stock.show**
+
+Represents stock information, including quantities, serials, and status.
+
+```json
+{
+    "id": "00117820-503f-11ed-9ef5-6ffc0e42329f",
+    "kitStatus": false,
+    "serviceCalls": [],
+    "issueSufficientQuantity": 0,
+    "status": "IN_PROGRESS",
+    "serial": "SerialNumber123",
+    "workorderNumber": "NXT-915",
+    "sku": "0007",
+    "skuDesc": "Guitar",
+    "skuRev": "0054",
+    "priority": 0,
+    "indicator": 1,
+    "quantity": 1,
+    "start": "2022-10-20T06:18:28.380Z",
+    "end": null,
+    "expirationDate": null,
+    "stockStatus": "PENDING",
+    "source": "local",
+    "changeLog": [
+      {
+        "id": "c7149bcf-81a3-4d9d-b551-5fcdab47cd47",
+        "type": "ITEM_ATTACH",
+        "date": "2022-10-20T06:19:14.835Z",
+        "userId": "73bb4b50-2f8d-11ea-a295-d7bdfad8da20",
+        "oldValue": null,
+        "newValue": {
+          "sku": "0002",
+          "serial": "000257"
+        }
+      },
+      {
+        "id": "cb7143fe-2c2b-4ad6-8091-5cf762e95a29",
+        "type": "ITEM_ATTACH",
+        "date": "2022-10-20T06:18:53.911Z",
+        "userId": "73bb4b50-2f8d-11ea-a295-d7bdfad8da20",
+        "oldValue": null,
+        "newValue": {
+          "sku": "0005",
+          "serial": "789789"
+        }
+      },
+      {
+        "id": "63d6604c-a4f7-478a-89b5-fa5f1bf66af1",
+        "type": "ITEM_ATTACH",
+        "date": "2022-10-20T06:18:45.691Z",
+        "userId": "73bb4b50-2f8d-11ea-a295-d7bdfad8da20",
+        "oldValue": null,
+        "newValue": {
+          "sku": "0005",
+          "serial": "88889"
+        }
+      },
+      {
+        "id": "62819b1e-7a20-4bbe-aa3e-00122e84b3d0",
+        "type": "ITEM_ATTACH",
+        "date": "2022-10-20T06:18:45.691Z",
+        "userId": "73bb4b50-2f8d-11ea-a295-d7bdfad8da20",
+        "oldValue": null,
+        "newValue": {
+          "sku": "0002",
+          "serial": "000875"
+        }
+      }
+    ],
+    "priorityDocIds": [],
+    "otherId": null,
+    "_v": 3,
+    "invalidQuantity": 0,
+    "validQuantity": 1,
+    "productionStatus": "valid",
+    "availableQuantity": 0,
+    "productionQuantity": 0,
+    "actions": [],
+    "locationIds": [],
+    "workorderId": "000cbd30-503f-11ed-9ef5-6ffc0e42329f",
+    "stockIds": [],
+    "userModelIds": [],
+    "created": "2022-10-20T06:18:23.266Z",
+    "modified": "2025-06-16T10:57:16.753Z",
+    "serverModified": "2025-06-16T10:57:16.753Z",
+    "deletedAt": null,
+    "deletedBy": null,
+    "timeLogs": [],
+    "stockItems": [
+      {
+        "id": "0d6de120-503f-11ed-9ef5-6ffc0e42329f",
+        "sku": "0002",
+        "serial": "000875",
+        "quantity": 1,
+        "attachType": "MANUAL",
+        "isSerial": true,
+        "kitItemId": "c26c88bb-78bb-4d7f-88e3-dc08f42ae66f"
+      },
+      {
+        "id": "0d6de121-503f-11ed-9ef5-6ffc0e42329f",
+        "sku": "0005",
+        "serial": "88889",
+        "quantity": 1,
+        "attachType": "MANUAL",
+        "isSerial": true,
+        "kitItemId": "15eb4a2d-31f4-4c37-8a42-eca942caeb66"
+      },
+      {
+        "id": "1253ffd0-503f-11ed-9ef5-6ffc0e42329f",
+        "sku": "0005",
+        "serial": "789789",
+        "quantity": 1,
+        "attachType": "MANUAL",
+        "isSerial": true,
+        "kitItemId": "15eb4a2d-31f4-4c37-8a42-eca942caeb66"
+      },
+      {
+        "id": "1ec9b250-503f-11ed-9ef5-6ffc0e42329f",
+        "sku": "0002",
+        "serial": "000257",
+        "quantity": 1,
+        "attachType": "MANUAL",
+        "isSerial": true,
+        "kitItemId": "c26c88bb-78bb-4d7f-88e3-dc08f42ae66f"
+      }
+    ],
+    "workflowSessionItemId": "000f0720-503f-11ed-9ef5-6ffc0e42329f",
+    "UserId": "1d8ae950-dc2f-11ed-8b92-a96960c3acf3",
+    "isSerial": true,
+    "kitItems": [
+      {
+        "quantity": 2,
+        "issuedQuantity": -1,
+        "sku": "0002",
+        "partDesc": "Pick-ups",
+        "isSerial": true,
+        "issuedToKit": false,
+        "manualIssue": true,
+        "unit": "kilogram",
+        "rev": "0001",
+        "act": null,
+        "serials": [],
+        "kitLines": [],
+        "id": "c26c88bb-78bb-4d7f-88e3-dc08f42ae66f"
+      },
+      {
+        "quantity": 2,
+        "issuedQuantity": -1,
+        "sku": "0005",
+        "partDesc": "Strings",
+        "isSerial": true,
+        "issuedToKit": false,
+        "manualIssue": true,
+        "unit": "kilogram",
+        "rev": "0003",
+        "act": null,
+        "serials": [],
+        "kitLines": [],
+        "id": "15eb4a2d-31f4-4c37-8a42-eca942caeb66"
+      }
+    ]
+  }
+```
+
+---
+
+### **FormData.show**
+
+Represents workflow form data and its relation to sessions, work orders, and stock.
+Contains field values, user assignments, and approval workflows.
+
+```json
+{
+    "id": "1181cfcd-bcba-418a-a7d1-10a8cd0fddea",
+    "number": 7065,
+    "formId": "242972e0-b5ce-11ed-93a5-0baee60f234b",
+    "sessionId": "86d11a40-fd91-11ee-a9da-bf3226092ed5",
+    "serial": null,
+    "workorderId": "c2f9a650-fd86-11ee-a6fe-ed6a3a6dee46",
+    "workorderNumber": "NXT-2860",
+    "sessionNodeId": "68bbc5d0-e5e2-11ee-b137-e7ef2bf8a60c_8c6a3569-0ec5-4394-952b-72b67c5e3e02_0",
+    "nodeId": "8c6a3569-0ec5-4394-952b-72b67c5e3e02",
+    "originalNodeId": "8c6a3569-0ec5-4394-952b-72b67c5e3e02",
+    "nodeName": "Step 1",
+    "workflowId": "68bbc5d0-e5e2-11ee-b137-e7ef2bf8a60c",
+    "originalWorkflowId": "68bbc5d0-e5e2-11ee-b137-e7ef2bf8a60c",
+    "workflowName": "RoboPag",
+    "recordId": "17b966e3-a051-4cc0-b3d8-954e07f8820b",
+    "workflowVersion": 2,
+    "workflowSubVersion": 0,
+    "workflowNormalizedVersion": "2",
+    "openInPreview": false,
+    "partSku": "RoboPag",
+    "partRev": "0903",
+    "hasStatus": false,
+    "unassigned": false,
+    "removeAssignee": false,
+    "assignee": [
+      "73bb4b50-2f8d-11ea-a295-d7bdfad8da20"
+    ],
+    "viewers": [
+      "183272c0-fcf1-11ec-b3e7-db9aace08fcb",
+      "73bb4b50-2f8d-11ea-a295-d7bdfad8da20"
+    ],
+    "status": null,
+    "ownerId": "73bb4b50-2f8d-11ea-a295-d7bdfad8da20",
+    "closedBy": null,
+    "closedAt": null,
+    "fields": [
+      {
+        "id": "a70cfc13-176c-478b-9ade-3a1cc4d8b93f",
+        "fieldId": "4dae54a0-ade5-11ed-99b4-83ee83c1e9ba",
+        "value": 10
+      },
+      {
+        "id": "f1d270ee-0ab2-415f-a398-b91c7f485e36",
+        "fieldId": "789e26e0-ade5-11ed-8dab-23b4f6970906",
+        "value": null
+      }
+    ],
+    "statuses": [],
+    "changeLog": [],
+    "approvalWorkflow": null,
+    "_v": 5,
+    "stockSku": "RoboPag",
+    "stockSerial": "TheSerialOfTheDayyyy",
+    "stockLot": null,
+    "requireDeviceLink": true,
+    "linkedTo": [],
+    "linkedFrom": [],
+    "stringNumber": "7065",
+    "originStockId": "c2fd76e0-fd86-11ee-a6fe-ed6a3a6dee46",
+    "created": "2024-04-18T14:42:15.000Z",
+    "modified": "2024-10-01T13:02:16.582Z",
+    "serverModified": "2024-10-01T13:02:16.582Z",
+    "deletedAt": null,
+    "deletedBy": null,
+    "UserId": "73bb4b50-2f8d-11ea-a295-d7bdfad8da20",
+    "createdBy": "73bb4b50-2f8d-11ea-a295-d7bdfad8da20",
+    "stockId": null,
+    "node_C_index": null,
+    "context": "session",
+    "orderNumber": "",
+    "sessionObject": {
+      "id": "86d11a40-fd91-11ee-a9da-bf3226092ed5",
+      "recordId": "17b966e3-a051-4cc0-b3d8-954e07f8820b",
+      "workorderId": "c2f9a650-fd86-11ee-a6fe-ed6a3a6dee46",
+      "indicator": 4,
+      "serials": [],
+      "partSku": "RoboPag",
+      "partRev": "0903",
+      "workorder": {
+        "id": "c2f9a650-fd86-11ee-a6fe-ed6a3a6dee46",
+        "workorderNumber": "NXT-2860",
+        "sku": "RoboPag",
+        "productRev": "0903",
+        "source": "local"
+      }
+    },
+    "linkedToForms": [],
+    "linkedFromForms": [],
+    "displayFieldsObject": {
+      "a70cfc13-176c-478b-9ade-3a1cc4d8b93f": {
+        "hide": false,
+        "options": []
+      },
+      "f1d270ee-0ab2-415f-a398-b91c7f485e36": {
+        "hide": false,
+        "options": []
+      }
+    },
+    "stockSerialOrLot": "TheSerialOfTheDayyyy",
+    "a70cfc13-176c-478b-9ade-3a1cc4d8b93f": 10,
+    "hasLogs": false,
+    "stockDesc": "RoboPag",
+    "isPartSerial": true
+}
+  ```
+
+---
+
+## Common Metadata
+
+All context types include the following base properties:
+
+```json
+{
+  "baseUrl": "https://<subdomain>.nextplus.io",
+  "user": {
+    "id": "183272c0-fcf1-11ec-b3e7-db9aace08fcb", // logged in user id
+    "username": "", // logged in username
+    "email": "", // logged in email
+    "firstName": "", // logged in first name
+    "lastName": "", // logged in last name
+    "displayName": "" // logged in display name (usually firstName + lastName)
+  }
+}
+```
+
+---
+
+## Developer Notes
+
+* You can explore available entity types, methods, and properties in:
+
+  * `node_modules/@nextplus/app-sdk/node_modules/@nextplus/js-sdk/src/sdk/types.gen.ts`
+  * `node_modules/@nextplus/app-sdk/node_modules/@nextplus/js-sdk/src/sdk/sdk.gen.ts`
+
+* The SDK automatically handles payload serialization. **Do not use `JSON.stringify`** when sending payloads.
