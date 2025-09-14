@@ -43,11 +43,23 @@ npm run expose
 
 3. Copy the ngrok URL from the second terminal and paste it into the NP plugin preview page.
 
+### Publish
+
+1. Install `npaddons` cli
+
+```bash
+npm i -g @nextplus/addons-cli
+```
+
+
+2. Once ready for deployment, use `npm run publish` to get your addon url.
+
 ### Available Scripts
 
 - `npm run dev` - Start development server on port 8301
 - `npm run expose` - Expose local server via ngrok for NP integration
 - `npm run stop` - Kill the development server running on port 8301
+- `npm run publish` - Publish your addon to nextplus cdn
 - `npm run build` - Build for production
 - `npm run lint` - Run ESLint
 - `npm run preview` - Preview production build

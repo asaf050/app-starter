@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0 --port 8301",
     "expose": "ngrok http 8301",
     "stop": "kill-port 8301",
+    "publish": "npm run build && npaddons publish ./build",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
