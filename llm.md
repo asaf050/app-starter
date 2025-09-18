@@ -1812,7 +1812,8 @@ All context types include the following base properties:
     "email": "", // logged in email
     "firstName": "", // logged in first name
     "lastName": "", // logged in last name
-    "displayName": "" // logged in display name (usually firstName + lastName)
+    "displayName": "", // logged in display name (usually firstName + lastName)
+    "language": "" // en / ru / he
   }
 }
 ```
