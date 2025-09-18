@@ -13,7 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@nextplus/app-sdk": "^0.0.7",
+    "@nextplus/app-sdk": "^0.0.8",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
