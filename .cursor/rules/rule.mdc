@@ -1,0 +1,62 @@
+---
+alwaysApply: true
+---
+React 2025 App Development Guidelines
+
+These guidelines apply to the development of modern, single-file, highly optimized React applications utilizing Tailwind CSS and the shadcn/ui component library.
+
+I. Architecture and Code Organization (DRY & Small Files)
+
+Functional Components Only: All components MUST be functional components using modern hooks (e.g., useState, useEffect, useContext).
+
+Single Responsibility Principle (SRP): Components MUST be kept small, focused on a single responsibility, and highly reusable.
+
+Encapsulation via Props: State and logic should be passed down via props. Avoid prop drilling by using React Context for global state, or leveraging modern state libraries (e.g., Zustand).
+
+DRY Principle: Duplicate JSX structures, utility functions, or logic blocks are strictly forbidden. Extract common elements into reusable, smaller components or custom hooks.
+
+Local vs. Global State:
+
+Use useState or useReducer for state localized to a single component or its direct children.
+
+Use Context for application-wide or global state (e.g., theme, user session).
+
+II. Styling and UI (Tailwind & shadcn/ui)
+
+Exclusive Styling Method: Styling MUST be achieved solely through Tailwind CSS utility classes applied directly in the JSX className attribute. External CSS files are forbidden.
+
+Use of shadcn/ui: For common, complex UI elements (e.g., buttons, cards, forms, dialogs, dropdowns, tables), the corresponding shadcn/ui component structure MUST be used. Components should be imported and composed as needed.
+
+Aesthetics and Responsiveness:
+
+Prioritize Visual Appeal: Ensure all UIs are clean, modern, and aesthetically pleasing (use rounded corners, appropriate shadows, and good color contrast).
+
+Full Responsiveness: Utilize Tailwind's responsive prefixes (sm:, md:, lg:) for all layout, spacing, and font adjustments to ensure the application works flawlessly across mobile, tablet, and desktop viewports.
+
+Icons: Use lucide-react for standard application icons. If a specific icon is unavailable, use inline SVG. Font Awesome is acceptable only for game-specific assets.
+
+Accessibility: Ensure basic accessibility by using semantic HTML elements and appropriate ARIA attributes, especially when creating custom interactive elements.
+
+III. Data and Logic
+
+Asynchronous Operations: All data fetching and side effects MUST be managed within the useEffect hook or specialized data-fetching hooks/libraries.
+
+Error Handling & Loading States: Every data-dependent component MUST explicitly handle and display loading states (e.g., spinners, skeleton loaders) and error states (e.g., professional message box).
+
+No Direct DOM Manipulation: Avoid using document.getElementById, querySelector, or similar functions. Use useRef for interactions requiring a reference to a DOM element.
+
+IV. General React Best Practices
+
+Key Props: Provide a unique key prop for every element in an array rendering (.map()). This is critical for performance and stability.
+
+Conditional Rendering: Prefer standard JavaScript logical operators (&&, ||, ternary operator ? :) for conditional rendering. Use early returns for guard clauses.
+
+Avoid Anti-patterns: Never use alert(), confirm(), or prompt(). All user confirmations or messages must use a custom modal or message component (preferably a shadcn/ui Dialog or Toast).
+
+Prop Naming: Use clear and descriptive names for props. Pass only necessary data to child components.
+
+V. Testing and Debugging
+
+Logging: Only use console.log for debugging purposes. Remove or comment out non-essential logs before finalizing the code.
+
+Clear Error Messages: If a functional block fails, log a specific error message to the console explaining the context (e.g., "Error fetching data for component X: [error details]").
